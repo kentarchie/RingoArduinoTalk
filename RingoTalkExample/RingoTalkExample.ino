@@ -21,79 +21,35 @@ The code that does all the functions is written by Kent Archie
 */
 
 #include "RingoHardware.h"
+#include "Utilities.h"
+#include "ControlLights.h"
 
 #define TRUE 1
 #define FALSE 0
 
-#define PIXEL_DELAY 250
-#define PIXEL_FLASH_DELAY 50
 #define LOOP_DELAY 1000
-#define LIGHT_SENSE_DELAY 1500
-#define LIGHT_AVERAGE_DELAY 125
 #define NUM_LIGHT_READINGS 4
 
-#define NEW_RED 220
-#define NEW_GREEN 30
-#define NEW_BLUE 160
-
-int LightSensorValue = 0; 
 int InitialAverageLight = 0; 
 int TooDarkValue = 0; 
 int AreHeadLightsOn = FALSE; 
 
 int LoopCounter = 0;   // used in log printing
 
-void GetRearLightSensors()
-{
-   LightSensorValue = analogRead(LightSense_Rear); // read Rear light sensor
-} // GetRearLightSensors
-
 void GetInitialLightValue() 
 {
    printString("Getting Light Average");
    digitalWrite(Source_Select, HIGH); //This selects the top light sensors
    for (int i = 0 ; i < NUM_LIGHT_READINGS; ++i) {
-      InitialAverageLight += analogRead(LightSense_Rear);
+      InitialAverageLight += GetRearLightSensor();
       delay(LIGHT_AVERAGE_DELAY);
    }
-   InitialAverageLight = InitialAverageLight / 4;
+   InitialAverageLight = InitialAverageLight / NUM_LIGHT_READINGS;
    TooDarkValue = InitialAverageLight * .20;
    printValue("Base Light Level = ", InitialAverageLight);
    printValue("TooDarkValue = ", TooDarkValue);
 } // GetInitialLightValue
 
-void LightsOnLoop()
-{
-  for (int pixel = 0 ; pixel < NUM_PIXELS; ++pixel) {
-      if((AreHeadLightsOn && ((pixel == EYE_LEFT) || (pixel == EYE_RIGHT))))
-         continue;
-      SetPixelRGB( pixel, NEW_RED, NEW_GREEN, NEW_BLUE);
-      delay(PIXEL_FLASH_DELAY);
-      OffPixel(pixel);
-      delay(PIXEL_DELAY);
-  }
-} // LightsOnLoop
-
-void HeadLightsOn(int averageLightValue) 
-{
-   SwitchButtonToPixels();
-   if((averageLightValue < InitialAverageLight) && 
-      ((InitialAverageLight - averageLightValue) > TooDarkValue))
-      {
-         printString("Too Dark");
-         OnEyes(100, 100, 100); // turn on front lights
-         AreHeadLightsOn = TRUE;
-         
-      }
-      else {
-         printString("Not Dark");
-         //OffEyes();
-         SetPixelRGB( 4, 0, 0, 0);
-         SetPixelRGB( 5, 0, 0, 0);
-         AreHeadLightsOn = FALSE;
-         GetRearLightSensors();
-      }
-} // HeadLightsOn
 
 // check the front left and right light sensors
 // if the values are more than 20% higher than the base value
@@ -101,19 +57,18 @@ void HeadLightsOn(int averageLightValue)
 void FollowLight() 
 {
    int leftSensorValue = 0, rightSensorValue = 0;
-   //OffEyes(); // need front lights off to take readings
-   SetPixelRGB( 4, 0, 0, 0);
-   SetPixelRGB( 5, 0, 0, 0);
-   Serial.println("Eyes Off");
+   OffEyes(); // need front lights off to take readings
+   //SetPixelRGB( 4, 0, 0, 0);
+   //SetPixelRGB( 5, 0, 0, 0);
+   printString("Eyes Off");
 
    leftSensorValue  = analogRead(LightSense_Left);
-   printValue("Left Sensor = ", leftSensorValue);
+   printValue("FollowLight: Left Sensor = ", leftSensorValue);
    rightSensorValue = analogRead(LightSense_Right);
    printValue("FollowLight: Right Sensor = ", rightSensorValue);
 
    if(AreHeadLightsOn) {
-      GetRearLightSensors();
-      HeadLightsOn(LightSensorValue);
+      HeadLightsOn(GetRearLightSensor());
    }
    printString("FollowLight: head light check reset");
 
@@ -153,21 +108,6 @@ void PlayLeftTune()
    //OffChirp();
 } // PlayLeftTune
 
-void printValue(char * label,int value) {
-   //SwitchMotorsToSerial(); //Call before using Serial.print functions as motors & serial share a line
-   Serial.print(LoopCounter);
-   Serial.print(": ");
-   Serial.print(label);
-   Serial.println(value);
-} // printValue
-
-void printString(char * label) {
-   //SwitchMotorsToSerial(); //Call before using Serial.print functions as motors & serial share a line
-   Serial.print(LoopCounter);
-   Serial.print(": ");
-   Serial.println(label);
-} // printValue
-
 void setup()
 {
    Serial.begin(57600);
@@ -187,18 +127,25 @@ void setup()
 
 void loop()
 { 
+   int lightSensorValue = 0; 
    LoopCounter++;
   // delay(LIGHT_SENSE_DELAY);
 
    LightsOnLoop();
 
    digitalWrite(Source_Select, HIGH); //This selects the top light sensors
-   GetRearLightSensors();
+   lightSensorValue = GetRearLightSensor();
 
-   printValue("Rear Light Sensor = ", LightSensorValue);
+   printValue("Rear Light Sensor = ", lightSensorValue);
 
-   HeadLightsOn(LightSensorValue);
+   HeadLightsOn(lightSensorValue);
    FollowLight();
    
    printString("Loop Done");
+   /*
+   if(LoopCounter > 30) {
+      printString("Ringo Shutdown");
+      exit(0);
+   }
+   */
 } // loop

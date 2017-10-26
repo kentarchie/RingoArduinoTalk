@@ -51,10 +51,12 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+*.mp4
 *.swp
 *.zip
 *stackdump
 attic
 attic/*
 *.log
-
+orig
+orig/*
