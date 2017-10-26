@@ -28,22 +28,35 @@ Visit http://www.arduino.cc to learn about the Arduino.
 #define LOOP_DELAY 1000
 #define LIGHT_SENSE_DELAY 1500
 #define LIGHT_AVERAGE_DELAY 125
+#define NUM_LIGHT_READINGS 4
 
 #define NEW_RED 220
 #define NEW_GREEN 30
 #define NEW_BLUE 160
 
-int RightSensorValue = 0; 
-int LeftSensorValue = 0; 
+int LightSensorValue = 0; 
 int InitialAverageLight = 0; 
 int TooDarkValue = 0; 
 int AreHeadLightsOn = FALSE; 
 
 void GetLightSensors()
 {
-   RightSensorValue = analogRead(LightSense_Right); // read right light sensor
-   LeftSensorValue  = analogRead(LightSense_Left);  // read left light sensor
+   LightSensorValue = analogRead(LightSense_Rear); // read Rear light sensor
 } // GetLightSensors
+
+void GetInitialLightValue() 
+{
+   Serial.println("Getting Light Average");
+   digitalWrite(Source_Select, HIGH); //This selects the top light sensors
+   for (int i = 0 ; i < NUM_LIGHT_READINGS; ++i) {
+      InitialAverageLight += analogRead(LightSense_Rear);
+      delay(LIGHT_AVERAGE_DELAY);
+   }
+   InitialAverageLight = InitialAverageLight / 4;
+   TooDarkValue = InitialAverageLight * .20;
+   printValue("Base Light Level = ", InitialAverageLight);
+   printValue("too Dark Light Level = ", TooDarkValue);
+} // GetInitialLightValue
 
 void LightsOn()
 {
@@ -64,7 +77,7 @@ void HeadLightsOn(int averageLightValue)
       ((InitialAverageLight - averageLightValue) > TooDarkValue))
       {
          Serial.println("Too Dark");
-         OnEyes(200, 200, 200);
+         OnEyes(100, 100, 100);
          AreHeadLightsOn = TRUE;
          
       }
@@ -104,23 +117,13 @@ void setup()
    SwitchMotorsToSerial(); //Call before using Serial.print functions as motors & serial share a line
    RestartTimer();
 
-   Serial.println("Getting Light Average");
-   digitalWrite(Source_Select, HIGH); //This selects the top light sensors
-   for (int i = 0 ; i < 4; ++i) {
-      InitialAverageLight += (analogRead(LightSense_Right) + analogRead(LightSense_Left)) /2;
-      delay(LIGHT_AVERAGE_DELAY);
-   }
-   InitialAverageLight = InitialAverageLight / 4;
-   TooDarkValue = InitialAverageLight * .20;
-   printValue("Base Light Level = ", InitialAverageLight);
-   printValue("too Dark Light Level = ", TooDarkValue);
+   GetInitialLightValue();
 
   Serial.println("Setup Done");
 } //setup
 
 void loop()
 { 
-   int averageLightValue = 0;
    delay(LIGHT_SENSE_DELAY);
 
    //PlayLeftTune();
@@ -129,16 +132,11 @@ void loop()
    LightsOn();
 
    digitalWrite(Source_Select, HIGH); //This selects the top light sensors
-   if(!AreHeadLightsOn) {
-      GetLightSensors();
-   }
-   averageLightValue = (RightSensorValue + LeftSensorValue) / 2;
+   GetLightSensors();
 
-   printValue("Left Light Sensor = ", LeftSensorValue);
-   printValue("Right Light Sensor = ", RightSensorValue);
-   printValue("Average Light Sensor = ", averageLightValue);
+   printValue("Light Sensor = ", LightSensorValue);
 
-   HeadLightsOn(averageLightValue);
+   HeadLightsOn(LightSensorValue);
    
    Serial.println("Loop Done");
 } // loop
